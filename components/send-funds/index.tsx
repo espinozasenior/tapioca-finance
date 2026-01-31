@@ -163,7 +163,7 @@ export function SendFundsModal({ open, onClose }: SendFundsModalProps) {
                     Gasless Transaction
                   </label>
                   <p className="text-xs text-gray-500">
-                    No ETH needed - Gelato sponsors gas fees
+                    No ETH needed - ZeroDev sponsors gas fees
                   </p>
                 </div>
                 <button

@@ -1,16 +1,25 @@
 # Phase 5 - Task #1: Deploy Shared Rebalancing Logic Contract
 
-**Status:** ✅ Contract Created (Ready for Deployment)
+> **⚠️ DEPRECATED - This document describes an obsolete contract that has been removed.**
+>
+> **Status:** ~~✅ Contract Created~~ → **Contract Removed**
+>
+> **The MorphoRebalancer.sol contract is no longer used.** The new architecture uses:
+> - **Direct vault interactions** via ERC-7715 session keys (no intermediary contract)
+> - **Gelato Smart Wallet SDK** for EIP-7702 smart accounts
+> - **Real-time vault data** from Morpho GraphQL API
+>
+> **See [`CLAUDE.md`](../CLAUDE.md) lines 73-137 for current architecture.**
 
 ---
 
-## Contract Overview
+## ~~Contract Overview~~ (OBSOLETE)
 
-### MorphoRebalancer.sol
+### ~~MorphoRebalancer.sol~~ (REMOVED)
 
-**Location:** `/liqx_contracts/contracts/MorphoRebalancer.sol`
+**Location:** ~~`/liqx_contracts/contracts/MorphoRebalancer.sol`~~ → DELETED
 
-**Purpose:** Shared rebalancing logic contract for EIP-7702 delegation that allows EOAs to temporarily execute rebalancing operations without deploying per-user contracts.
+**Purpose:** ~~Shared rebalancing logic contract~~ → Replaced by direct vault calls in `lib/agent/rebalance-executor.ts`
 
 **Key Features:**
 1. ✅ **Full Rebalance**: Move all shares from one Morpho vault to another

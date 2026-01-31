@@ -37,50 +37,11 @@ export async function simulateTransaction(
 }
 
 /**
- * Send an EIP-7702 transaction (Type 4) via Crossmint
- * This allows an EOA to act as a smart account temporarily.
+ * DEPRECATED: Phase 5 - Replaced by ZeroDev Kernel V3
+ * This function was used with Crossmint's EIP-7702 API, which has been
+ * replaced with proper ZeroDev smart account implementation.
+ * See: lib/zerodev/client.ts
  */
-export async function agentSend7702Batch(
-  userWalletAddress: string,
-  authorizations: any[], // Signed authorizations from the user
-  calls: { to: string; data: string; value?: string }[],
-  chain: string = "base"
-) {
-  const apiKey = process.env.CROSSMINT_SERVER_SIDE_API_KEY;
-  const agentPrivateKey = process.env.LIQX_AGENT_PRIVATE_KEY as Hex;
-
-  if (!apiKey || !agentPrivateKey) {
-    throw new Error("Missing Crossmint API Key or Agent Private Key");
-  }
-
-  // The agent (operator) signs the actual transaction (Type 4)
-  // which includes the user's authorizations.
-  const agentAccount = privateKeyToAccount(agentPrivateKey);
-  
-  const response = await fetch(`${CROSSMINT_API_URL}/v1-alpha1/wallets/${userWalletAddress}/transactions`, {
-    method: "POST",
-    headers: {
-      "X-API-KEY": apiKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      params: {
-        calls, // Batch of calls
-        authorizationList: authorizations,
-      },
-      signer: `evm-key-pair:${agentAccount.address}`,
-      transactionType: 4, // EIP-7702
-      chain,
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(`7702 Execution error: ${JSON.stringify(error)}`);
-  }
-
-  return response.json();
-}
 
 /**
  * Sign and send a transaction using the Agent's private key as a delegated signer
@@ -168,7 +129,7 @@ export async function registerDelegatedSigner(
 
 export async function getDelegatedSigners(walletLocator: string) {
   const apiKey = process.env.CROSSMINT_SERVER_SIDE_API_KEY;
-  
+
   if (!apiKey) {
     throw new Error("CROSSMINT_SERVER_SIDE_API_KEY is not configured");
   }
@@ -187,3 +148,43 @@ export async function getDelegatedSigners(walletLocator: string) {
 
   return response.json();
 }
+
+/**
+ * DEPRECATED: Phase 5 - Replaced by ZeroDev execution
+ * See: lib/agent/rebalance-executor.ts for new implementation
+ */
+
+/**
+ * Get status of a transaction task from Crossmint
+ */
+async function getTaskStatus(
+  userAddress: string,
+  taskId: string
+): Promise<{ status: string; transactionHash?: string; gasUsed?: string; error?: string }> {
+  const apiKey = process.env.CROSSMINT_SERVER_SIDE_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("CROSSMINT_SERVER_SIDE_API_KEY is not configured");
+  }
+
+  const response = await fetch(
+    `${CROSSMINT_API_URL}/v1-alpha1/wallets/${userAddress}/transactions/${taskId}`,
+    {
+      method: "GET",
+      headers: {
+        "X-API-KEY": apiKey,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    return { status: 'error', error: 'Failed to fetch task status' };
+  }
+
+  return response.json();
+}
+
+/**
+ * DEPRECATED: Phase 5 - No longer needed with ZeroDev
+ * ZeroDev bundler handles retry logic and gas estimation automatically
+ */

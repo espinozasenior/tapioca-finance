@@ -1,33 +1,30 @@
 # Phase 5: Autonomous Agent Implementation Status
 
-**Updated:** January 30, 2026
-**Overall Progress:** 40% Complete
+> **⚠️ DEPRECATED - This document describes an outdated implementation approach.**
+>
+> **The architecture has been refactored:**
+> - **MorphoRebalancer.sol contract** → Removed (direct vault interactions via session keys)
+> - **Crossmint API** → Replaced with Gelato Smart Wallet SDK
+> - **Signature-based auth** → Replaced with ERC-7715 session keys
+> - **Hardcoded vaults** → Real-time data from Morpho GraphQL API
+>
+> **See [`CLAUDE.md`](../CLAUDE.md) lines 73-137 for current architecture.**
+>
+> **See plan [`polymorphic-mixing-adleman.md`](../.claude/plans/polymorphic-mixing-adleman.md) for refactoring details.**
 
 ---
 
-## Task Completion Status
+## ~~Task Completion Status~~ (OBSOLETE)
 
-### ✅ Task #1: Deploy Shared Rebalancing Logic Contract (COMPLETE)
+### ~~✅ Task #1: Deploy Shared Rebalancing Logic Contract~~ (REMOVED)
 
-**Status:** Contract created and ready for deployment
+**Status:** Contract removed - no longer needed with new architecture
 
-**What's Done:**
-- ✅ `MorphoRebalancer.sol` contract created
-- ✅ Deployment script (`deployMorphoRebalancer.ts`) ready
-- ✅ Hardhat configured for Base network
-- ✅ Contract includes:
-  - `executeRebalance()` - Full rebalancing
-  - `executePartialRebalance()` - Partial rebalancing
-  - `emergencyWithdraw()` - Emergency funds extraction
-  - `getVaultBalance()` - Position queries
-
-**To Deploy:**
-```bash
-cd liqx_contracts
-export BASE_RPC_URL="https://mainnet.base.org"
-export BASE_PRIVATE_KEY="your_private_key"
-npx hardhat run scripts/deployMorphoRebalancer.ts --network base
-```
+**What Was Done:**
+- ~~✅ `MorphoRebalancer.sol` contract created~~ → DELETED (direct vault calls used instead)
+- ~~✅ Deployment script (`deployMorphoRebalancer.ts`) ready~~ → N/A
+- ~~✅ Hardhat configured for Base network~~ → N/A
+- ~~✅ Contract includes rebalancing functions~~ → Now handled by `lib/agent/rebalance-executor.ts`
 
 **Files:**
 - `/liqx_contracts/contracts/MorphoRebalancer.sol`

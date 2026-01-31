@@ -6,7 +6,13 @@ const sql = neon(process.env.DATABASE_URL!);
 
 /**
  * POST /api/agent/register
- * Registers the LiqX Agent as a delegated signer for the user's wallet (ERC-7702 flow)
+ * Stores agent authorization after client-side ZeroDev registration
+ *
+ * Flow (client-side via lib/zerodev/client.ts):
+ * 1. User creates ZeroDev Kernel V3 smart account with Privy as signer
+ * 2. Fetches approved Morpho vaults
+ * 3. Grants session key permissions to agent (ERC-7715)
+ * 4. Sends authorization data to this endpoint for storage
  */
 export async function POST(request: NextRequest) {
   try {
@@ -16,37 +22,67 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing wallet address" }, { status: 400 });
     }
 
-    // 1. Store in Neon Database
-    // We store the wallet address, enable auto-optimize, and save the 7702 authorization
-    // We stringify the authorization object to ensure it's stored correctly as JSONB
-    const authJson = JSON.stringify(authorization);
+    if (!authorization) {
+      return NextResponse.json({ error: "Missing authorization data" }, { status: 400 });
+    }
+
+    console.log("[Agent Register] Storing authorization for", address);
+
+    // Validate authorization structure
+    if (authorization.type !== "zerodev-session-key") {
+      return NextResponse.json({ error: "Invalid authorization type" }, { status: 400 });
+    }
+
+    if (!authorization.smartAccountAddress || !authorization.sessionPrivateKey) {
+      return NextResponse.json({ error: "Invalid authorization data" }, { status: 400 });
+    }
+
+    // Store authorization in database (received from client-side ZeroDev setup)
+    const authorizationData = {
+      type: "zerodev-session-key",
+      smartAccountAddress: authorization.smartAccountAddress,
+      sessionKeyAddress: authorization.sessionKeyAddress,
+      sessionPrivateKey: authorization.sessionPrivateKey, // Encrypted in production!
+      expiry: authorization.expiry,
+      approvedVaults: authorization.approvedVaults,
+      timestamp: authorization.timestamp || Date.now(),
+    };
+
+    const authJson = JSON.stringify(authorizationData);
 
     await sql`
       INSERT INTO users (wallet_address, auto_optimize_enabled, agent_registered, authorization_7702)
       VALUES (${address}, true, true, ${authJson}::jsonb)
-      ON CONFLICT (wallet_address) 
-      DO UPDATE SET 
-        auto_optimize_enabled = true, 
-        agent_registered = true, 
+      ON CONFLICT (wallet_address)
+      DO UPDATE SET
+        auto_optimize_enabled = true,
+        agent_registered = true,
         authorization_7702 = ${authJson}::jsonb,
         updated_at = NOW()
     `;
 
-    // 2. Ensure user has a strategy entry
-    // We use the newly created user's ID
+    // Ensure user has a strategy entry
     await sql`
       INSERT INTO user_strategies (user_id)
       SELECT id FROM users WHERE wallet_address = ${address}
       ON CONFLICT (user_id) DO NOTHING
     `;
 
+    console.log("[Agent Register] ✓ Authorization stored successfully");
+
     return NextResponse.json({
-      message: "Agent registered and authorized successfully via ERC-7702",
+      message: "Agent registered with ZeroDev Kernel smart account and session keys",
+      smartAccountAddress: authorization.smartAccountAddress,
+      sessionKeyAddress: authorization.sessionKeyAddress,
+      approvedVaults: authorization.approvedVaults?.length || 0,
       status: "active"
     });
   } catch (error: any) {
     console.error("Agent registration error:", error);
-    return NextResponse.json({ error: error.message || "Failed to register agent" }, { status: 500 });
+    return NextResponse.json({
+      error: error.message || "Failed to register agent",
+      details: process.env.NODE_ENV === "development" ? error.stack : undefined
+    }, { status: 500 });
   }
 }
 

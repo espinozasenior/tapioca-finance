@@ -4,7 +4,6 @@ import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { type Hex, createPublicClient, createWalletClient, custom, http, formatUnits, parseUnits, encodeFunctionData } from "viem";
 import { base } from "viem/chains";
 import { useMemo } from "react";
-import { sendGaslessUSDC, checkTaskStatus } from "@/lib/gelato/relay";
 
 // USDC on Base
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
@@ -140,29 +139,12 @@ export function useWallet() {
       },
 
       /**
-       * Send tokens gaslessly (Gelato sponsored)
+       * Send tokens gaslessly (ZeroDev sponsored)
+       * TODO: Implement gasless transfers via ZeroDev bundler + paymaster
        * No gas fees required from user
        */
       async sendSponsored(to: string, asset: string, amount: string) {
-        if (!wallet) throw new Error("Wallet not ready");
-        if (!address) throw new Error("Wallet address not yet available");
-
-        if (asset.toLowerCase() === "usdc") {
-          // Execute gasless USDC transfer via Gelato
-          const result = await sendGaslessUSDC({
-            to,
-            amount,
-            userAddress: address,
-          });
-
-          return {
-            hash: result.taskId, // Return taskId as hash for now
-            taskId: result.taskId,
-            checkStatus: () => checkTaskStatus(result.taskId),
-          };
-        }
-
-        throw new Error(`Gasless transfers for ${asset} not supported yet`);
+        throw new Error("Gasless transfers not yet implemented with ZeroDev - use regular send() for now");
       },
 
       /**

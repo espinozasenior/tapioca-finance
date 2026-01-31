@@ -10,7 +10,7 @@ export function HomeContent() {
   const { wallet, isReady: walletReady } = useWallet();
   const { status, isReady: authReady, user, ready, authenticated } = useAuth();
 
-  useProcessWithdrawal(user?.id, wallet);
+  useProcessWithdrawal(user?.id, wallet ?? undefined);
 
   const walletAddress = wallet?.address;
   const isLoggedIn = authenticated && !!wallet;

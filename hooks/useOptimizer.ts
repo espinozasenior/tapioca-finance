@@ -3,8 +3,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useWallet } from "./useWallet";
-import { sponsored } from "@gelatonetwork/smartwallet";
-import type { Hex } from "viem";
+import { useWallets } from "@privy-io/react-auth";
 
 // Types matching what components expect (compatible with legacy Yield.xyz types)
 export interface YieldOpportunity {
@@ -181,6 +180,9 @@ export function useAgent() {
   const queryClient = useQueryClient();
   const address = wallet?.address;
 
+  // Access Privy wallets for ZeroDev integration
+  const { wallets } = useWallets();
+
   const status = useQuery({
     queryKey: ["agent-status", address],
     queryFn: async () => {
@@ -196,58 +198,49 @@ export function useAgent() {
     mutationFn: async () => {
       if (!wallet || !address) throw new Error("No wallet connected");
 
-      console.log("[Agent Registration] Starting EIP-7702 registration flow", {
+      console.log("[Agent Registration] Starting ZeroDev smart account registration", {
         address,
       });
 
-      // MorphoRebalancer contract address
-      // TODO: Update this after deploying the contract in Task #1
-      const rebalancerContractAddress = process.env.NEXT_PUBLIC_REBALANCER_CONTRACT || "0x70997970C51812dc3A010C7d01b50e0d17dc79C8" as Hex;
-
-      console.log("[Agent Registration] Creating EIP-7702 authorization...");
-
       try {
-        // Create EIP-7702 authorization message
-        // This message authorizes the user's EOA to delegate to the MorphoRebalancer contract
-        const authorizationMessage = {
-          chainId: 8453, // Base mainnet
-          address: rebalancerContractAddress, // Contract to delegate to
-          nonce: BigInt(Date.now()), // Unique nonce for this authorization
-        };
+        // Import ZeroDev client helper
+        const { registerAgentWithZeroDev } = await import("@/lib/zerodev/client");
 
-        console.log("[Agent Registration] Authorization message:", authorizationMessage);
+        // Use Privy wallet from hook scope
+        const privyWallet = wallets?.[0];
+        if (!privyWallet) {
+          throw new Error("Privy wallet not found");
+        }
 
-        // In a full EIP-7702 implementation, the user would sign this authorization
-        // For now, we store the authorization intent
-        // When EIP-7702 is fully supported, this will include a signature
-        const authorization = {
-          type: "eip-7702",
-          chainId: authorizationMessage.chainId,
-          contractAddress: authorizationMessage.address,
-          nonce: authorizationMessage.nonce.toString(),
-          userAddress: address,
-          timestamp: Date.now(),
-          // signature: await wallet.signMessage(...) // Will be added when EIP-7702 is fully supported
-        };
+        // Execute ZeroDev Kernel smart account creation + session key grant (client-side)
+        // No agent wallet needed - session key allows backend to execute on behalf of user
+        console.log("[Agent Registration] Creating ZeroDev Kernel smart account...");
+        const authorization = await registerAgentWithZeroDev(privyWallet as any);
 
-        console.log("[Agent Registration] Storing authorization in backend...");
+        console.log("[Agent Registration] ✓ Kernel smart account created");
+        console.log("[Agent Registration] Sending authorization to backend...");
+
+        // Send session key authorization to backend for storage
         const res = await fetch("/api/agent/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             address,
-            authorization
+            authorization: {
+              type: "zerodev-session-key",
+              ...authorization
+            }
           }),
         });
 
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({}));
-          console.error("[Agent Registration] ❌ Backend registration failed:", errorData);
-          throw new Error(errorData.error || "Agent registration failed");
+          console.error("[Agent Registration] ❌ Backend storage failed:", errorData);
+          throw new Error(errorData.error || "Failed to store authorization");
         }
 
         const result = await res.json();
-        console.log("[Agent Registration] ✅ EIP-7702 authorization stored!");
+        console.log("[Agent Registration] ✅ Registration complete!");
         return result;
       } catch (error: any) {
         console.error("[Agent Registration] ❌ Registration failed:", error);

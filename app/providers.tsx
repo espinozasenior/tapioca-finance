@@ -30,8 +30,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
             accentColor: '#676FFF',
           },
           embeddedWallets: {
-            createOnLogin: 'all-users', // Changed from 'users-without-wallets' to force creation
-            requireUserPasswordOnCreate: false,
+            ethereum: {
+              createOnLogin: 'all-users', // Force embedded wallet creation for all users
+            },
           },
           defaultChain: base,
         }}
