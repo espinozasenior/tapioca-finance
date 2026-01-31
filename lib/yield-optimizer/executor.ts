@@ -188,6 +188,55 @@ export async function buildDepositTransaction(
 }
 
 /**
+ * Build a batch of transactions for a full rebalance
+ * @param fromProtocol - Protocol to exit
+ * @param toProtocol - Protocol to enter
+ * @param userAddress - User's wallet address
+ * @param amount - Amount to move in USDC
+ * @param fromVaultAddress - Optional source vault address
+ * @param toVaultAddress - Optional destination vault address
+ */
+export async function buildRebalanceTransactions(
+  fromProtocol: string,
+  toProtocol: string,
+  userAddress: `0x${string}`,
+  amount: string,
+  fromVaultAddress?: `0x${string}`,
+  toVaultAddress?: `0x${string}`
+): Promise<DepositTransactionResult> {
+  const amountWei = parseUnits(amount, 6);
+  const transactions: DepositTransactionResult["transactions"] = [];
+
+  // 1. Build Withdrawal
+  const withdrawRes = await buildWithdrawTransaction(
+    fromProtocol,
+    userAddress,
+    undefined, // Withdraw by asset amount
+    amountWei,
+    fromVaultAddress
+  );
+  
+  // Add withdrawal with stepIndex 0
+  transactions.push(...withdrawRes.transactions.map(tx => ({ ...tx, stepIndex: 0 })));
+
+  // 2. Build Deposit (includes Approval)
+  const depositRes = await buildDepositTransaction(
+    toProtocol,
+    userAddress,
+    amount,
+    toVaultAddress
+  );
+
+  // Add deposit steps starting from stepIndex 1
+  transactions.push(...depositRes.transactions.map(tx => ({ 
+    ...tx, 
+    stepIndex: tx.stepIndex + 1 
+  })));
+
+  return { transactions };
+}
+
+/**
  * Build withdraw transaction to exit a position
  * @param protocol - The protocol to withdraw from
  * @param userAddress - User's wallet address

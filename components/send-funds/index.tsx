@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useAuth, useWallet } from "@crossmint/client-sdk-react-ui";
+import { useAuth, useWallet } from "@/hooks/useWallet";
 import { AmountInput } from "../common/AmountInput";
 import { OrderPreview } from "./OrderPreview";
 import { RecipientInput } from "./RecipientInput";
@@ -22,8 +22,19 @@ export function SendFundsModal({ open, onClose }: SendFundsModalProps) {
   const [showPreview, setShowPreview] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [useGasless, setUseGasless] = useState(true);
   const { displayableBalance, refetch: refetchBalance } = useBalance();
   const { refetch: refetchActivityFeed } = useActivityFeed();
+
+  // Debug logging
+  console.log('[SendFunds] State:', {
+    recipient,
+    amount,
+    displayableBalance,
+    showPreview,
+    isLoading,
+    hasWallet: !!wallet,
+  });
 
   const isRecipientValid = isValidAddress(recipient) || isEmail(recipient);
   const isAmountValid =
@@ -69,9 +80,19 @@ export function SendFundsModal({ open, onClose }: SendFundsModalProps) {
         return;
       }
 
+      // Email recipients not supported with Privy - only wallet addresses
       if (isEmail(recipient)) {
-        await wallet.send(`email:${recipient}`, "usdc", amount);
+        setError("Email recipients not yet supported. Please use a wallet address.");
+        setIsLoading(false);
+        return;
+      }
+
+      // Use gasless or regular transaction based on toggle
+      if (useGasless) {
+        console.log('[SendFunds] Sending gasless transaction');
+        await wallet.sendSponsored(recipient, "usdc", amount);
       } else {
+        console.log('[SendFunds] Sending regular transaction');
         await wallet.send(recipient, "usdc", amount);
       }
 
@@ -134,6 +155,31 @@ export function SendFundsModal({ open, onClose }: SendFundsModalProps) {
             </div>
             <div className="mt-4 w-full">
               <RecipientInput recipient={recipient} onChange={setRecipient} error={error} />
+            </div>
+            <div className="mt-4 w-full">
+              <div className="flex items-center justify-between rounded-lg border border-gray-200 p-4">
+                <div className="flex flex-col">
+                  <label className="text-sm font-medium text-gray-900">
+                    Gasless Transaction
+                  </label>
+                  <p className="text-xs text-gray-500">
+                    No ETH needed - Gelato sponsors gas fees
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setUseGasless(!useGasless)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    useGasless ? 'bg-blue-600' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      useGasless ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
             <div className="mt-auto w-full pt-8">
               <button

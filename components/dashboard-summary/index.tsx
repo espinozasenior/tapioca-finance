@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "../common/DropdownMenu";
 import { WalletDetails } from "./WalletDetails";
-import { useWallet, useAuth } from "@crossmint/client-sdk-react-ui";
+import { useWallet, useAuth } from "@/hooks/useWallet";
 
 interface DashboardSummaryProps {
   onDepositClick: () => void;

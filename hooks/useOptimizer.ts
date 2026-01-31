@@ -2,7 +2,9 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useWallet } from "@crossmint/client-sdk-react-ui";
+import { useWallet } from "./useWallet";
+import { sponsored } from "@gelatonetwork/smartwallet";
+import type { Hex } from "viem";
 
 // Types matching what components expect (compatible with legacy Yield.xyz types)
 export interface YieldOpportunity {
@@ -171,6 +173,128 @@ export function useRebalance() {
       queryClient.invalidateQueries({ queryKey: ["balance"] });
     },
   });
+}
+
+// Agent status and registration hook
+export function useAgent() {
+  const { wallet } = useWallet();
+  const queryClient = useQueryClient();
+  const address = wallet?.address;
+
+  const status = useQuery({
+    queryKey: ["agent-status", address],
+    queryFn: async () => {
+      if (!address) return { isRegistered: false, autoOptimizeEnabled: false, hasAuthorization: false };
+      const res = await fetch(`/api/agent/register?address=${address}`);
+      if (!res.ok) throw new Error("Failed to fetch agent status");
+      return res.json();
+    },
+    enabled: !!address,
+  });
+
+  const register = useMutation({
+    mutationFn: async () => {
+      if (!wallet || !address) throw new Error("No wallet connected");
+
+      console.log("[Agent Registration] Starting EIP-7702 registration flow", {
+        address,
+      });
+
+      // MorphoRebalancer contract address
+      // TODO: Update this after deploying the contract in Task #1
+      const rebalancerContractAddress = process.env.NEXT_PUBLIC_REBALANCER_CONTRACT || "0x70997970C51812dc3A010C7d01b50e0d17dc79C8" as Hex;
+
+      console.log("[Agent Registration] Creating EIP-7702 authorization...");
+
+      try {
+        // Create EIP-7702 authorization message
+        // This message authorizes the user's EOA to delegate to the MorphoRebalancer contract
+        const authorizationMessage = {
+          chainId: 8453, // Base mainnet
+          address: rebalancerContractAddress, // Contract to delegate to
+          nonce: BigInt(Date.now()), // Unique nonce for this authorization
+        };
+
+        console.log("[Agent Registration] Authorization message:", authorizationMessage);
+
+        // In a full EIP-7702 implementation, the user would sign this authorization
+        // For now, we store the authorization intent
+        // When EIP-7702 is fully supported, this will include a signature
+        const authorization = {
+          type: "eip-7702",
+          chainId: authorizationMessage.chainId,
+          contractAddress: authorizationMessage.address,
+          nonce: authorizationMessage.nonce.toString(),
+          userAddress: address,
+          timestamp: Date.now(),
+          // signature: await wallet.signMessage(...) // Will be added when EIP-7702 is fully supported
+        };
+
+        console.log("[Agent Registration] Storing authorization in backend...");
+        const res = await fetch("/api/agent/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            address,
+            authorization
+          }),
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          console.error("[Agent Registration] ❌ Backend registration failed:", errorData);
+          throw new Error(errorData.error || "Agent registration failed");
+        }
+
+        const result = await res.json();
+        console.log("[Agent Registration] ✅ EIP-7702 authorization stored!");
+        return result;
+      } catch (error: any) {
+        console.error("[Agent Registration] ❌ Registration failed:", error);
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["agent-status", address] });
+    },
+  });
+
+  const toggleAutoOptimize = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      if (!address) throw new Error("No wallet connected");
+
+      const res = await fetch("/api/agent/register", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          address,
+          autoOptimizeEnabled: enabled
+        }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to update auto-optimize setting");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["agent-status", address] });
+    },
+  });
+
+  return {
+    isRegistered: status.data?.isRegistered ?? false,
+    autoOptimizeEnabled: status.data?.autoOptimizeEnabled ?? false,
+    hasAuthorization: status.data?.hasAuthorization ?? false,
+    isLoading: status.isLoading,
+    register: register.mutate,
+    isRegistering: register.isPending,
+    registerError: register.error,
+    toggleAutoOptimize: toggleAutoOptimize.mutate,
+    isTogglingAutoOptimize: toggleAutoOptimize.isPending,
+    toggleError: toggleAutoOptimize.error,
+  };
 }
 
 // Helper functions

@@ -1,4 +1,4 @@
-import { useWallet } from "@crossmint/client-sdk-react-ui";
+import { useWallet } from "./useWallet";
 import { useQuery } from "@tanstack/react-query";
 import { YieldPosition, useYieldPositions } from "./useOptimizer";
 

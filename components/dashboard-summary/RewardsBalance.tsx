@@ -1,5 +1,5 @@
 import { useYieldPositions } from "../../hooks/useOptimizer";
-import { useWallet } from "@crossmint/client-sdk-react-ui";
+import { useWallet } from "@/hooks/useWallet";
 
 export function RewardsBalance() {
   const { wallet } = useWallet();
