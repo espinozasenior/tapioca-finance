@@ -3,6 +3,7 @@ import { neon } from '@neondatabase/serverless';
 import { YieldDecisionEngine } from "@/lib/agent/decision-engine";
 import { executeRebalance } from "@/lib/agent/rebalance-executor";
 import { formatUnits } from "viem";
+import { decryptAuthorization } from '@/lib/security/session-encryption';
 
 const sql = neon(process.env.DATABASE_URL!);
 
@@ -125,12 +126,12 @@ async function processUserRebalance(
 ): Promise<void> {
   const userAddress = user.wallet_address as `0x${string}`;
   const userId = user.id;
-  const authorization = user.authorization_7702;
+  const encryptedAuthorization = user.authorization_7702;
 
   console.log(`[Cron] Processing ${userAddress}...`);
 
   // 1. Validate session key
-  if (!authorization || authorization.type !== 'zerodev-session-key') {
+  if (!encryptedAuthorization || encryptedAuthorization.type !== 'zerodev-session-key') {
     summary.skipped++;
     summary.details.push({
       address: userAddress,
@@ -140,6 +141,9 @@ async function processUserRebalance(
     console.log(`[Cron] Skipped ${userAddress}: No session key`);
     return;
   }
+
+  // Decrypt authorization (only when needed for execution)
+  const authorization = decryptAuthorization(encryptedAuthorization);
 
   // Check if session key expired
   if (!isSessionValid(authorization.expiry)) {

@@ -15,6 +15,7 @@ import {
   type TransferSessionAuthorization,
   type PrivyWalletProvider,
 } from '@/lib/zerodev/transfer-session';
+import { encryptAuthorization } from '@/lib/security/session-encryption';
 
 const sql = neon(process.env.DATABASE_URL!);
 
@@ -146,10 +147,13 @@ export async function POST(request: NextRequest) {
       address as `0x${string}`
     );
 
+    // Encrypt authorization before storing
+    const encryptedAuth = encryptAuthorization(authorization);
+
     // Store in database
     await sql`
       UPDATE users
-      SET transfer_authorization = ${JSON.stringify(authorization)},
+      SET transfer_authorization = ${JSON.stringify(encryptedAuth)},
           updated_at = NOW()
       WHERE LOWER(wallet_address) = LOWER(${address})
     `;

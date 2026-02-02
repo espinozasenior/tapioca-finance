@@ -1,6 +1,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { neon } from '@neondatabase/serverless';
+import { encryptAuthorization } from '@/lib/security/session-encryption';
 
 const sql = neon(process.env.DATABASE_URL!);
 
@@ -38,15 +39,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Store authorization in database (received from client-side ZeroDev setup)
-    const authorizationData = {
-      type: "zerodev-session-key",
+    const authorizationData = encryptAuthorization({
+      type: "zerodev-session-key" as const,
       smartAccountAddress: authorization.smartAccountAddress,
       sessionKeyAddress: authorization.sessionKeyAddress,
-      sessionPrivateKey: authorization.sessionPrivateKey, // Encrypted in production!
+      sessionPrivateKey: authorization.sessionPrivateKey,
       expiry: authorization.expiry,
       approvedVaults: authorization.approvedVaults,
       timestamp: authorization.timestamp || Date.now(),
-    };
+    });
 
     const authJson = JSON.stringify(authorizationData);
 

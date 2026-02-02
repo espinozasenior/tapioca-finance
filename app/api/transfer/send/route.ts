@@ -19,6 +19,7 @@ import {
   checkTransferRateLimit,
   recordTransferAttempt,
 } from '@/lib/rate-limiter';
+import { decryptAuthorization } from '@/lib/security/session-encryption';
 
 const sql = neon(process.env.DATABASE_URL!);
 
@@ -57,14 +58,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const transferAuth = users[0].transfer_authorization as TransferSessionAuthorization | null;
+    const encryptedAuth = users[0].transfer_authorization as TransferSessionAuthorization | null;
 
-    if (!transferAuth) {
+    if (!encryptedAuth) {
       return NextResponse.json(
         { error: 'Gasless transfers not enabled. Please enable in settings.' },
         { status: 403 }
       );
     }
+
+    // Decrypt authorization
+    const transferAuth = decryptAuthorization(encryptedAuth);
 
     // 2. Validate transfer session
     const sessionValidation = validateTransferSession(transferAuth);
